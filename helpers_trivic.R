@@ -1000,39 +1000,45 @@ density.Du1.Du2_trivic = function(index12){
 
 funsData_trivic <- function(Funs, d1, d2, u1, u2, u3, alpha12, alpha1, alpha2,
                             index12, index1, index2, integrate = TRUE, 
-                            pc.method = "foreach"){
+                            pc.method = "foeach"){
+  
   funs = Funs(index12)
   grp = d1 + 2 * d2 + 1
-  out = NULL
+  out = as.list(1 : 4)
   for (k in 1 : 4){
     myfun = funs[[k]]
     index = which(grp == k)
     if (sum(index) > 0) {
       if (integrate) {
         if (pc.method == "foreach"){
-          ll = foreach(i = index, .combine = c, .packages = c("VineCopula")) %dopar% {
+          ll = foreach(i = index, .packages = c("VineCopula", "dplyr")) %dopar% {
             source("helpers.R")
             myint = function(uu){
               myfun(
                 u1 = rep(u1[i], length(uu)), u2 = rep(u2[i], length(uu)),
-                u3 = uu, par12 = alpha12[i], par1 = alpha1[i], par2 = alpha2[i],
+                u3 = uu, par12 = rep(alpha12[i], length(uu)), 
+                par1 = rep(alpha1[i], length(uu)), 
+                par2 = rep(alpha2[i], length(uu)),
                 index12 = index12, index1 = index1, index2 = index2)
             }
             pracma::integral(myint, xmin = 0, xmax = u3[i])
           }
-        }
-        if (pc.method == "mclapply"){
+          ll = unlist(ll)
+        } else {
           ll =  parallel::mclapply(
             index, function(i){
               myint = function(uu){
                 myfun(
                   u1 = rep(u1[i], length(uu)), u2 = rep(u2[i], length(uu)),
-                  u3 = uu, par12 = alpha12[i], par1 = alpha1[i], par2 = alpha2[i],
+                  u3 = uu, par12 = rep(alpha12[i], length(uu)), 
+                  par1 = rep(alpha1[i], length(uu)), 
+                  par2 = rep(alpha2[i], length(uu)),
                   index12 = index12, index1 = index1, index2 = index2)
               }
               pracma::integral(myint, xmin = 0, xmax = u3[i])
             }
-          ) %>% unlist()
+          ) 
+          ll = unlist(ll)
         }
       } else {
         ll = myfun(
@@ -1040,11 +1046,11 @@ funsData_trivic <- function(Funs, d1, d2, u1, u2, u3, alpha12, alpha1, alpha2,
           par12 = alpha12[index], par1 = alpha1[index], par2 = alpha2[index],
           index12 = index12, index1 = index1, index2 = index2)
       }
-      out = rbind(out, data.frame(index = index, ll = ll))
+      out[[k]] = data.frame(index = index, ll = ll)
     }
   }
-  out = out %>% arrange(index, )
-  return(out$ll)
+  out = do.call(rbind, out) %>% arrange(index, )
+  out$ll
 }
 
 prepare_trivic = function(theta, index12, link12, Wmat12, control12, N, 
@@ -1141,72 +1147,83 @@ prepare_trivic = function(theta, index12, link12, Wmat12, control12, N,
 lln.trivic.PMLE = function(uu1, uu2, uu3, dd1, dd2, dd3, par12, par1, par2, 
                            index12, index1, index2, link12, Wmat12, 
                            yes.constraint, only.ll = FALSE, 
-                           pc.method = "foreach"){
+                           pc.method = "foeach"){
   
-  if (yes.constraint) out = -Inf else {
-    N = length(uu1)
-    cu1 = BiCopHfunc2(uu1, uu3, family = index1, par = par1)
-    cu2 = BiCopHfunc2(uu2, uu3, family = index2, par = par2)
-    if (index12 == 4) {
-      cu1[cu1 == 1] = exp(- 1 / N)
-      cu2[cu2 == 1] = exp(- 1 / N)
+  if (yes.constraint) {
+    if (only.ll) return(-Inf) else {
+      return(list(lln = -Inf, dll = NA, ddlln = NA))
     }
-    ll1.all = llfuns.bvic(
-      u1 = cu1[dd3 == 1], u2 = cu2[dd3 == 1], d1 = dd1[dd3 == 1], 
-      d2 = dd2[dd3 == 1], copula.index = index12, alphai = par12[dd3 == 1], 
-      yes.constraint = yes.constraint, 
-      only.ll = only.ll, theta1 = TRUE, dat_bvic =  NULL, 
-      copula.link = link12, Wmat = Wmat12[dd3 == 1, ,drop = F], 
-      yes.dllDu2 = FALSE)
-    lln1.sum = ll1.all$lln * sum(dd3 == 1)
-    dd = funsData_trivic(
-      Funs = density_trivic, 
-      d1 = dd1[dd3 == 0], d2 = dd2[dd3 == 0], 
-      u1 = uu1[dd3 == 0], u2 = uu2[dd3 == 0], u3 = uu3[dd3 == 0], 
-      alpha12 = par12[dd3 == 0], alpha1 = par1[dd3 == 0], 
-      alpha2 = par2[dd3 == 0], index12 = index12, index1 = index1, 
-      index2 = index2, integrate = TRUE, pc.method = pc.method)
-    ll0 = log(dd)
-    lln = (lln1.sum + sum(ll0)) / N
-    if (only.ll) out = list(lln = lln) else{
-      n.gamma12 = ncol(Wmat12)
-      alpha12.lp = link12$hinv.fun(par12[dd3 == 0])
-      ## ll.Dgamma12 ----
-      ll1.Dgamma12 = ll1.all$dll
-      dd.Dpar12 = funsData_trivic(
-        Funs = density.Dpar12_trivic, 
+  } else {
+      N = length(uu1)
+      # browser()
+      cu1 = BiCopHfunc2(uu1, uu3, family = index1, par = par1)
+      cu2 = BiCopHfunc2(uu2, uu3, family = index2, par = par2)
+      if (index12 == 4) {
+        cu1[cu1 == 1] = exp(- 1 / N)
+        cu2[cu2 == 1] = exp(- 1 / N)
+      }
+      
+      ll1.all = llfuns.bvic(
+        u1 = cu1[dd3 == 1], u2 = cu2[dd3 == 1], d1 = dd1[dd3 == 1], 
+        d2 = dd2[dd3 == 1], copula.index = index12, alphai = par12[dd3 == 1], 
+        yes.constraint = yes.constraint, 
+        only.ll = only.ll, theta1 = TRUE, dat_bvic =  NULL, 
+        copula.link = link12, Wmat = Wmat12[dd3 == 1, ,drop = F], 
+        yes.dllDu2 = FALSE)
+      lln1.sum = ll1.all$lln * sum(dd3 == 1)
+      
+      dd = funsData_trivic(
+        Funs = density_trivic, 
         d1 = dd1[dd3 == 0], d2 = dd2[dd3 == 0], 
         u1 = uu1[dd3 == 0], u2 = uu2[dd3 == 0], u3 = uu3[dd3 == 0], 
         alpha12 = par12[dd3 == 0], alpha1 = par1[dd3 == 0], 
         alpha2 = par2[dd3 == 0], index12 = index12, index1 = index1, 
         index2 = index2, integrate = TRUE, pc.method = pc.method)
-      ll0.Dpar12 = dd.Dpar12 / dd
-      ll0.Dgamma12 = ll0.Dpar12 * link12$dot.h.fun(alpha12.lp) * 
-        Wmat12[dd3 == 0, , drop = F]
-      ll.Dgamma12 = matrix(NA, nrow = N, ncol = n.gamma12)
-      ll.Dgamma12[dd3 == 1, ] = ll1.Dgamma12
-      ll.Dgamma12[dd3 == 0, ] = ll0.Dgamma12
-      ## ll.Dgamma12.Dgamma12 ----
-      ll1.Dgamma12.Dgamma12 = ll1.all$ddlln * sum(dd3 == 1)
-      dd.Dpar12.Dpar12 = funsData_trivic(
-        Funs = density.Dpar12.Dpar12_trivic, 
-        d1 = dd1[dd3 == 0], d2 = dd2[dd3 == 0], 
-        u1 = uu1[dd3 == 0], u2 = uu2[dd3 == 0], u3 = uu3[dd3 == 0], 
-        alpha12 = par12[dd3 == 0], alpha1 = par1[dd3 == 0], 
-        alpha2 = par2[dd3 == 0], index12 = index12, index1 = index1, 
-        index2 = index2, integrate = TRUE, pc.method = pc.method)
-      ll0.Dpar12.Dpar12 = dd.Dpar12.Dpar12 / dd - ll0.Dpar12 ^ 2
-      ll0.Dgamma12.Dgamma12 = matrix(
-        apply((ll0.Dpar12.Dpar12 * (link12$dot.h.fun(alpha12.lp) ^ 2) + 
-                 ll0.Dpar12 * link12$ddot.h.fun(alpha12.lp)) * 
-                Wmat12[dd3 == 0, rep(1 : n.gamma12, n.gamma12), drop = F] * 
-                Wmat12[dd3 == 0, rep(1 : n.gamma12, each = n.gamma12), drop = F], 
-              2, mean, na.rm = T),
-        byrow = T, nrow = n.gamma12, ncol = n.gamma12) * sum(dd3 == 0)
-      ll.Dgamma12.Dgamma12 = (ll1.Dgamma12.Dgamma12 + ll0.Dgamma12.Dgamma12) / 
-        N
-      out = list(lln = lln, dll = ll.Dgamma12, ddlln = ll.Dgamma12.Dgamma12)
-    }
+      ll0 = log(dd)
+      lln = (lln1.sum + sum(ll0)) / N
+      
+      if (only.ll) {
+        out = list(lln = lln)
+      } else{
+        n.gamma12 = ncol(Wmat12)
+        alpha12.lp = link12$hinv.fun(par12[dd3 == 0])
+        ## ll.Dgamma12 ----
+        ll1.Dgamma12 = ll1.all$dll
+        dd.Dpar12 = funsData_trivic(
+          Funs = density.Dpar12_trivic, 
+          d1 = dd1[dd3 == 0], d2 = dd2[dd3 == 0], 
+          u1 = uu1[dd3 == 0], u2 = uu2[dd3 == 0], u3 = uu3[dd3 == 0], 
+          alpha12 = par12[dd3 == 0], alpha1 = par1[dd3 == 0], 
+          alpha2 = par2[dd3 == 0], index12 = index12, index1 = index1, 
+          index2 = index2, integrate = TRUE, pc.method = pc.method)
+        ll0.Dpar12 = dd.Dpar12 / dd
+        ll0.Dgamma12 = ll0.Dpar12 * link12$dot.h.fun(alpha12.lp) * 
+          Wmat12[dd3 == 0, drop = F]
+        ll.Dgamma12 = matrix(NA, nrow = N, ncol = n.gamma12)
+        ll.Dgamma12[dd3 == 1, ] = ll1.Dgamma12
+        ll.Dgamma12[dd3 == 0, ] = ll0.Dgamma12
+        
+        ## ll.Dgamma12.Dgamma12 ----
+        ll1.Dgamma12.Dgamma12 = ll1.all$ddlln * sum(dd3 == 1)
+        dd.Dpar12.Dpar12 = funsData_trivic(
+          Funs = density.Dpar12.Dpar12_trivic, 
+          d1 = dd1[dd3 == 0], d2 = dd2[dd3 == 0], 
+          u1 = uu1[dd3 == 0], u2 = uu2[dd3 == 0], u3 = uu3[dd3 == 0], 
+          alpha12 = par12[dd3 == 0], alpha1 = par1[dd3 == 0], 
+          alpha2 = par2[dd3 == 0], index12 = index12, index1 = index1, 
+          index2 = index2, integrate = TRUE, pc.method = pc.method)
+        ll0.Dpar12.Dpar12 = dd.Dpar12.Dpar12 / dd - ll0.Dpar12 ^ 2
+        ll0.Dgamma12.Dgamma12 = matrix(
+          apply((ll0.Dpar12.Dpar12 * (link12$dot.h.fun(alpha12.lp) ^ 2) + 
+                   ll0.Dpar12 * link12$ddot.h.fun(alpha12.lp)) * 
+                  Wmat12[dd3 == 0, rep(1 : n.gamma12, n.gamma12), drop = F] * 
+                  Wmat12[dd3 == 0, rep(1 : n.gamma12, each = n.gamma12), drop = F], 
+                2, mean, na.rm = T),
+          byrow = T, nrow = n.gamma12, ncol = n.gamma12) * sum(dd3 == 0)
+        ll.Dgamma12.Dgamma12 = (ll1.Dgamma12.Dgamma12 + ll0.Dgamma12.Dgamma12) / 
+          N
+        out = list(lln = lln, dll = ll.Dgamma12, ddlln = ll.Dgamma12.Dgamma12)
+      }
   }
   return(out)
 }

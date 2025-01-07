@@ -196,8 +196,8 @@ prepare_bvic = function(theta, thetaT = FALSE, Xi = NULL, deltaT = NULL,
   copula.lp = as.vector(Wmat %*% matrix(copula.para, byrow = F, ncol = 1))
   alphai = h.fun(copula.lp)
   theta0 = theta0[- c(1 : n.para)]
-  yes.constraint = min(alphai) < control$lwr | 
-    max(alphai) > control$upr
+  yes.constraint = min(alphai) <= control$lwr | 
+    max(alphai) >= control$upr
   
   if (!thetaT){
     if (is.null(Xi) | is.null(deltaT) | is.null(ZmatT)) 
@@ -223,9 +223,11 @@ prepare_bvic = function(theta, thetaT = FALSE, Xi = NULL, deltaT = NULL,
       alphai = alphai, yes.constraint = yes.constraint,
       ui = uiT, G.all = G.all, Lambda.Xi = LambdaT.Xi, 
       dLambda.Xi = dLambdaT.Xi, dLambda.tk = dLambdaT,
-      bz = bZ.T, Xi.g.tk = Xi.g.tk, dN.tk = dN.tk, Zmat = ZmatT)
+      bz = bZ.T, Xi.g.tk = Xi.g.tk, dN.tk = dN.tk, Zmat = ZmatT,
+      alphai.lp = copula.lp)
   } else {
-    out = list(alphai = alphai, yes.constraint = yes.constraint)
+    out = list(alphai = alphai, yes.constraint = yes.constraint, 
+               alphai.lp = copula.lp)
   } 
   return(out)
 }
@@ -242,6 +244,10 @@ llfuns.bvic <- function(u1, u2, d1, d2, copula.index, alphai, yes.constraint,
       if (copula.index == 4) { # gumbel
         u1[u1 == 1] = exp(- 1 / N)
         u2[u2 == 1] = exp(- 1 / N)
+      }
+      if (copula.index == 3){
+        u1[u1 == 0] = 1 - exp(- 1 / N)
+        u2[u2 == 0] = 1 - exp(- 1 / N)
       }
       dd = funsData_bvic(density_bvic, d1 = d1, d2 = d2, u1 = u1, u2 = u2,
                     copula.index = copula.index, para = alphai)
@@ -317,6 +323,7 @@ llfuns.bvic <- function(u1, u2, d1, d2, copula.index, alphai, yes.constraint,
             Funs = density.Du1.Du1_bvic, d1 = d1, d2 = d2, u1 = u1, u2 = u2,
             copula.index = copula.index, para = alphai) 
           ll.Du1.Du1 = dd.Du1.Du1 / dd - ll.Du1 ^ 2
+        
           ll.DLambda1.DLambda1 = crossprod(
             (ll.Du1.Du1 * u1 ^ 2 * ebz1 ^ 2 * G.all$dg.fun(Lambda.X1 * ebz1) ^ 2 + 
                ll.Du1 * u1 * ebz1 ^ 2 * G.all$dg.fun(Lambda.X1 * ebz1) ^ 2 -

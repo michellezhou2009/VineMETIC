@@ -311,8 +311,6 @@ Surv.baseline = function(Lambda.est, tt){
   data.frame(tt = tt, surv = Shat.tt, se = Shat.tt.se)
 }
 
-
-
 SurvEst = function(Lambda.est, beta.est, Psi.theta, newdat, conf.int = FALSE,
                    level = 0.95){
   tk = Lambda.est$time; Lambda = Lambda.est$est
