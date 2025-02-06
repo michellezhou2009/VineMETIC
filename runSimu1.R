@@ -13,7 +13,7 @@ source("helpers.R")
 source("helpers_bvic.R")
 source("helpers_trivic.R")
 source("DataGenFuns.R")
-source("metic_trivic.R")
+source("cvine_trivic.R")
 
 nrep = 500
 seed1 = 20240122

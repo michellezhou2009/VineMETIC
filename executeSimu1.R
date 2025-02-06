@@ -20,7 +20,7 @@ for (r in 1 : 2){
     
     user.time = system.time({
       out = try(
-        metic.trivic(
+        cvine.trivic(
         data, times, deltas, fmlas, Gfuns, copula.fams, 
         copula.links, copula.fmlas, ncores = ncores, pc.method = "foreach"), 
         silent = TRUE
