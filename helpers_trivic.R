@@ -998,6 +998,61 @@ density.Du1.Du2_trivic = function(index12){
 }
 
 
+# funsData_trivic <- function(Funs, d1, d2, u1, u2, u3, alpha12, alpha1, alpha2,
+#                             index12, index1, index2, integrate = TRUE, 
+#                             pc.method = "foeach"){
+#   
+#   funs = Funs(index12)
+#   grp = d1 + 2 * d2 + 1
+#   out = as.list(1 : 4)
+#   for (k in 1 : 4){
+#     myfun = funs[[k]]
+#     index = which(grp == k)
+#     if (sum(index) > 0) {
+#       if (integrate) {
+#         if (pc.method == "foreach"){
+#           ll = foreach(i = index, .packages = c("VineCopula", "dplyr")) %dopar% {
+#             source("helpers.R")
+#             myint = function(uu){
+#               myfun(
+#                 u1 = rep(u1[i], length(uu)), u2 = rep(u2[i], length(uu)),
+#                 u3 = uu, par12 = rep(alpha12[i], length(uu)), 
+#                 par1 = rep(alpha1[i], length(uu)), 
+#                 par2 = rep(alpha2[i], length(uu)),
+#                 index12 = index12, index1 = index1, index2 = index2)
+#             }
+#             pracma::integral(myint, xmin = 0, xmax = u3[i])
+#           }
+#           ll = unlist(ll)
+#         } else {
+#           ll =  parallel::mclapply(
+#             index, function(i){
+#               myint = function(uu){
+#                 myfun(
+#                   u1 = rep(u1[i], length(uu)), u2 = rep(u2[i], length(uu)),
+#                   u3 = uu, par12 = rep(alpha12[i], length(uu)), 
+#                   par1 = rep(alpha1[i], length(uu)), 
+#                   par2 = rep(alpha2[i], length(uu)),
+#                   index12 = index12, index1 = index1, index2 = index2)
+#               }
+#               pracma::integral(myint, xmin = 0, xmax = u3[i])
+#             }
+#           ) 
+#           ll = unlist(ll)
+#         }
+#       } else {
+#         ll = myfun(
+#           u1 = u1[index], u2 = u2[index], u3 = u3[index],
+#           par12 = alpha12[index], par1 = alpha1[index], par2 = alpha2[index],
+#           index12 = index12, index1 = index1, index2 = index2)
+#       }
+#       out[[k]] = data.frame(index = index, ll = ll)
+#     }
+#   }
+#   out = do.call(rbind, out) %>% arrange(index, )
+#   out$ll
+# }
+
 funsData_trivic <- function(Funs, d1, d2, u1, u2, u3, alpha12, alpha1, alpha2,
                             index12, index1, index2, integrate = TRUE, 
                             pc.method = "foeach"){
@@ -1022,7 +1077,8 @@ funsData_trivic <- function(Funs, d1, d2, u1, u2, u3, alpha12, alpha1, alpha2,
                 index12 = index12, index1 = index1, index2 = index2)
             }
             pracma::integral(myint, xmin = 0, xmax = u3[i])
-          }
+            # integrate(myint, lower = 0, upper = u3[i])$value
+            }
           ll = unlist(ll)
         } else {
           ll =  parallel::mclapply(
@@ -1036,6 +1092,7 @@ funsData_trivic <- function(Funs, d1, d2, u1, u2, u3, alpha12, alpha1, alpha2,
                   index12 = index12, index1 = index1, index2 = index2)
               }
               pracma::integral(myint, xmin = 0, xmax = u3[i])
+              # integrate(myint, lower = 0, upper = u3[i])$value
             }
           ) 
           ll = unlist(ll)
@@ -1052,6 +1109,7 @@ funsData_trivic <- function(Funs, d1, d2, u1, u2, u3, alpha12, alpha1, alpha2,
   out = do.call(rbind, out) %>% arrange(index, )
   out$ll
 }
+
 
 prepare_trivic = function(theta, index12, link12, Wmat12, control12, N, 
                           thetaT = FALSE, datT = NULL){
@@ -1150,7 +1208,7 @@ lln.trivic.PMLE = function(uu1, uu2, uu3, dd1, dd2, dd3, par12, par1, par2,
                            pc.method = "foeach"){
   
   if (yes.constraint) {
-    if (only.ll) return(-Inf) else {
+    if (only.ll) return(list(lln = -Inf)) else {
       return(list(lln = -Inf, dll = NA, ddlln = NA))
     }
   } else {
