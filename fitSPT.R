@@ -247,29 +247,28 @@ fitSPT = function(data, time = "time", status = "status", formula = ~ 1,
   return(out)
 }
 
-fitPH = function(mydata, time = "time", status = "status", formula = ~ 1, se.fit = TRUE){
+fitPH = function(data, time = "time", status = "status", formula = ~ 1, se.fit = TRUE){
   
-  N = nrow(mydata)
-  xi = mydata[, colnames(mydata) == time]
-  di = mydata[, colnames(mydata) == status]
-  zi = model.matrix(formula, mydata)[, - 1, drop = F]
+  N = nrow(data)
+  xi = data[, colnames(data) == time]
+  di = data[, colnames(data) == status]
+  zi = model.matrix(formula, data)[, - 1, drop = F]
   n.b = ncol(zi)
   
   ph.fmla = update(formula, as.formula(paste0("Surv(", time, ",", status, ") ~ .")))
   
   if (n.b == 0) {
     b.est = NULL; bzi = rep(0, N)
-    myfit = summary(survfit(ph.fmla, mydata, type = "fh"))
+    myfit = summary(survfit(ph.fmla, data, type = "fh"))
     Lambda.fit = list(
       time = myfit$time, hazard = myfit$cumhaz
     )
   } else {
-    myfit = coxph(ph.fmla, mydata, method = "breslow")
+    myfit = coxph(ph.fmla, data, method = "breslow")
     b.est = myfit$coef; 
     bzi = as.vector(zi %*% matrix(b.est, byrow = F, ncol = 1))
     Lambda.fit = basehaz(myfit, centered = FALSE)
   }
-  browser()
   Lambda = Lambda.fit$hazard
   dLambda = c(Lambda[1], diff(Lambda, lag = 1))
   tt = Lambda.fit$time[dLambda != 0]; n.tt = length(tt)

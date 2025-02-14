@@ -31,9 +31,9 @@ cvine.trivic = function(data, times, deltas, fmlas, Gfuns, copula.fams,
   res = lapply(seq(J-1), function(j){
     timej = times[j]; statusj = deltas[j]; fmlaj = fmlas[[j]]; Gfunj = Gfuns[j]
     Xi = data[, timej]; deltaT = data[, statusj]
-    copula.link = MylinkFun(links[j, J])
+    copula.link = MylinkFun(copula.links[j, J])
     Wmat = model.matrix(as.formula(copula.fmlas[j, J]), data); n.gamma = ncol(Wmat)
-    copula.index = MyCopIndex(families[j, J])  
+    copula.index = MyCopIndex(copula.fams[j, J])  
     control = MyCop(copula.index)
     
     ZmatT = model.matrix(fmlaj, data)[ , - 1, drop = F]; n.bT = ncol(ZmatT)
@@ -168,10 +168,10 @@ cvine.trivic = function(data, times, deltas, fmlas, Gfuns, copula.fams,
   Psi.all = c(Psi.all, Psi.gamma.all)
   
   ## Estimate Cop(1,2) ----
-  link12 = MylinkFun(links[1, 2])
+  link12 = MylinkFun(copula.links[1, 2])
   Wmat12 = model.matrix(as.formula(copula.fmlas[1, 2]), data); 
   n.gamma12 = ncol(Wmat12)
-  index12 = MyCopIndex(families[1, 2]); control12 = MyCop(index12)
+  index12 = MyCopIndex(copula.fams[1, 2]); control12 = MyCop(index12)
   gamma12.ini = link12$hinv.fun(BiCopTau2Par(index12, tau = 0.1))
   if (n.gamma12 > 1) gamma12.ini = c(gamma12.ini, rep(0, n.gamma12 - 1))
   
