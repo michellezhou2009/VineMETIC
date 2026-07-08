@@ -1,6 +1,14 @@
 # Source Function for pMLE: clayton ####
 
 #' Function to return estimated SD, S1star, S2star
+#'
+#' Revised from the function of the same name in the `bvic` package
+#' (https://github.com/dli-stats/bvic), provided in:
+#' Li, D., Hu, X. J., & Wang, R. (2023). Evaluating Association Between
+#' Two Event Times with Observations Subject to Informative Censoring.
+#' Journal of the American Statistical Association, 118(542), 1282-1294.
+#' https://doi.org/10.1080/01621459.2021.1990766
+#'
 #' @importFrom survival survfit Surv
 #' @importFrom stats approxfun
 #' @keywords internal

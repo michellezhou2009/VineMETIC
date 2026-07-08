@@ -72,3 +72,15 @@ source("gather/gather_sim3.R")
 
 - [VineSurvIC](https://github.com/michellezhou2009/VineSurvIC)
 - VineCopula, survival, trust, dplyr, tidyr, ggplot2, purrr
+
+## Acknowledgments
+
+`utils/li2020_fit.R` implements the Li (2020) pseudo-MLE benchmark used
+in Simulation Study III. Its `npest.star_12()` function is revised from
+the function of the same name in the
+[`bvic`](https://github.com/dli-stats/bvic) package, provided in:
+
+Li, D., Hu, X. J., & Wang, R. (2023). Evaluating Association Between
+Two Event Times with Observations Subject to Informative Censoring.
+*Journal of the American Statistical Association*, 118(542), 1282-1294.
+https://doi.org/10.1080/01621459.2021.1990766
