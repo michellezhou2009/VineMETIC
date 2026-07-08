@@ -25,7 +25,10 @@ the manuscript and its supplementary material.
     misspecification scenarios.
   - Sim III: symmetric trivariate Clayton DGP without covariates, at
     two true tau levels, comparing VineSurvIC's vine-PMLE against the
-    Li (2020) pseudo-MLE benchmark.
+    pseudo-MLE benchmark of Li, Hu, McBride & Spinelli (2020, *Lifetime
+    Data Analysis*, 26(3), 573-602); this single-parameter symmetric
+    Clayton DGP is the boundary case of the more general nested-copula
+    model considered in that paper.
 - `drivers/` -- simulation drivers that generate data, fit models, and
   save one `.rds` per replication under `raw_results/`.
   - `run_sim1.R`, `run_sim2.R`, `run_sim3.R`
@@ -41,8 +44,8 @@ the manuscript and its supplementary material.
     Web Figures S2-S4 (supp)
   - `gather_sim3.R` -> Web Table (Sim III, supp)
 - `utils/` -- shared helper functions used by the settings/drivers
-  scripts (censoring-rate calibration, tau12 quadrature, the Li (2020)
-  pseudo-MLE fitting routine), trimmed down from the original
+  scripts (censoring-rate calibration, tau12 quadrature, the Li et al.
+  (2020) pseudo-MLE fitting routine), trimmed down from the original
   simulation harness to only what the current code calls.
 
 ## Reproducing the results
@@ -75,9 +78,20 @@ source("gather/gather_sim3.R")
 
 ## Acknowledgments
 
-`utils/li2020_fit.R` implements the Li (2020) pseudo-MLE benchmark used
-in Simulation Study III. Its `npest.star_12()` function is revised from
-the function of the same name in the
+`utils/li2020_fit.R` implements the pseudo-MLE benchmark used in
+Simulation Study III to compare against:
+
+Li, D., Hu, X. J., McBride, M. L., & Spinelli, J. J. (2020). Multiple
+event times in the presence of informative censoring: Modeling and
+analysis by copulas. *Lifetime Data Analysis*, 26(3), 573-602.
+https://doi.org/10.1007/s10985-019-09490-0
+
+Simulation Study III's single-parameter, symmetric trivariate Clayton
+data-generating process is the boundary case of the more general
+nested-copula model considered in that paper.
+
+Separately, the `npest.star_12()` function within `li2020_fit.R` is
+revised from the function of the same name in the
 [`bvic`](https://github.com/dli-stats/bvic) package, provided in:
 
 Li, D., Hu, X. J., & Wang, R. (2023). Evaluating Association Between
