@@ -1,0 +1,129 @@
+rm(list = ls())
+
+library(VineSurvIC)
+library(VineCopula)
+library(survival)
+library(trust)
+
+## ------------------------------------------------------------------
+## Configuration
+## ------------------------------------------------------------------
+nrep_target <- 500L
+nsamp_grid  <- c(500L, 1000L, 2000L)
+
+seed_master  <- 20240122L
+setting_path <- "settings/sim1_setting.rds"
+if (!file.exists(setting_path)) {
+  source("settings/sim1_setting.R", chdir = FALSE)
+}
+setting <- readRDS(setting_path)
+
+set.seed(seed_master)
+seeds <- sample.int(.Machine$integer.max, size = nrep_target)
+
+## ------------------------------------------------------------------
+## Helpers
+## ------------------------------------------------------------------
+surv_at_grid <- function(cumhaz, tt) {
+  tk     <- cumhaz$time
+  Lambda <- cumhaz$est
+  Lse    <- cumhaz$se
+  idx    <- findInterval(tt, tk)             # 0 means t < tk[1]
+  Ltt    <- ifelse(idx == 0L, 0, Lambda[pmax(idx, 1L)])
+  Lse.tt <- ifelse(idx == 0L, 0, Lse[pmax(idx, 1L)])
+  Shat   <- exp(-Ltt)
+  data.frame(tt = tt, surv = Shat, se = Shat * Lse.tt)
+}
+
+fit_one_rep <- function(r, n, seed_r, setting, out_root) {
+  out_dir  <- file.path(out_root, sprintf("n%d", n))
+  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  out_file <- file.path(out_dir, sprintf("rep_%04d.rds", r))
+  if (file.exists(out_file)) return(list(rep = r, n = n, status = "cached"))
+
+  t0 <- Sys.time()
+  set.seed(seed_r)
+  dat <- VineSurvIC::gen_metic_data_j3(
+    n            = n,
+    betas        = setting$betas,
+    vine_spec    = setting$vine_spec,
+    copula_pars  = setting$copula_pars,
+    gammas       = setting$gammas,
+    c.lwr        = setting$c.lwr,
+    c.upr        = setting$c.upr,
+    seed         = seed_r
+  )
+  cen_rate <- data.frame(
+    T1 = 1 - mean(dat$delta1), T2 = 1 - mean(dat$delta2),
+    TD = 1 - mean(dat$deltaD), rep = r, nsamp = n)
+
+  fit <- tryCatch(
+    VineSurvIC::fit_metic_j3(
+      data       = dat,
+      times      = c("time1", "time2", "timeD"),
+      statuses   = c("delta1", "delta2", "deltaD"),
+      Z_formulas = list(~ z1 + z2, ~ z1 + z2, ~ z1 + z2),
+      vine_spec  = setting$vine_spec,
+      Gfuns      = c("PH", "PH", "PH"),
+      pc.method  = "none",
+      verbose    = FALSE
+    ),
+    error = function(e) e
+  )
+  elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+  cat("rep ", r, ":", elapsed, "\n", sep = "")
+  if (inherits(fit, "error")) {
+    res <- list(rep = r, n = n, status = "error",
+                error = conditionMessage(fit),
+                elapsed = elapsed, cen_rate = cen_rate)
+  } else {
+    s  <- summary(fit)
+    pp <- setting$tt.all$pp
+    survT1 <- surv_at_grid(s$Lambda_T1, setting$tt.all$t1)
+    survT1$true <- pp; survT1$rep <- r; survT1$nsamp <- n
+    survT2 <- surv_at_grid(s$Lambda_T2, setting$tt.all$t2)
+    survT2$true <- pp; survT2$rep <- r; survT2$nsamp <- n
+    survTD <- surv_at_grid(s$Lambda_T3, setting$tt.all$tD)
+    survTD$true <- pp; survTD$rep <- r; survTD$nsamp <- n
+
+    res <- list(
+      rep = r, n = n, status = "ok",
+      elapsed = elapsed, cen_rate = cen_rate,
+      beta_T1 = s$beta_T1, beta_T2 = s$beta_T2, beta_T3 = s$beta_T3,
+      gamma_13 = s$gamma_13, gamma_23 = s$gamma_23,
+      gamma_12_3 = s$gamma_12_3,
+      survT1 = survT1, survT2 = survT2, survTD = survTD,
+      implied_13 = s$implied_13,
+      implied_23 = s$implied_23,
+      implied_12_3 = s$implied_12_3)
+  }
+  saveRDS(res, file = out_file)
+  res
+}
+
+## ------------------------------------------------------------------
+## Main loop: n x rep (sequential)
+## ------------------------------------------------------------------
+cat("\nSim 1 launcher\n")
+cat("  nsamp_grid : ", paste(nsamp_grid, collapse = ", "), "\n", sep = "")
+cat("  nrep_target: ", nrep_target, "\n", sep = "")
+cat("  start      : ", format(Sys.time()), "\n\n", sep = "")
+
+for (n in nsamp_grid) {
+  cat("=== n = ", n, " ===\n", sep = "")
+  out_root <- "raw_results/sim1"
+  results <- vector("list", nrep_target)
+  for (r in seq_len(nrep_target)) {
+    results[[r]] <- fit_one_rep(r = r, n = n, seed_r = seeds[r],
+                                 setting = setting, out_root = out_root)
+  }
+  ok    <- sum(vapply(results, function(x) identical(x$status, "ok"),
+                      logical(1)), na.rm = TRUE)
+  err   <- sum(vapply(results, function(x) identical(x$status, "error"),
+                      logical(1)), na.rm = TRUE)
+  cache <- sum(vapply(results, function(x) identical(x$status, "cached"),
+                      logical(1)), na.rm = TRUE)
+  cat("  ok = ", ok, "  cached = ", cache, "  errors = ", err, "\n", sep = "")
+}
+
+cat("\nSim 1 finished at ", format(Sys.time()), "\n", sep = "")

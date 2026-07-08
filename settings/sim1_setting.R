@@ -27,11 +27,10 @@ suppressPackageStartupMessages({
   library(VineCopula)
 })
 
-## Source the original simulation_new utilities for find.gammaD,
-## find.gammaT, quantileT.fun, survT.fun, calc.tau. These are
-## simulation-script-flavored helpers; they live in the harness, not
-## the package.
-source("utils/calibration_orig.R")
+## Source the censoring-rate calibration helpers (find.gammaD,
+## find.gammaT, quantileT.fun). These are simulation-script-flavored
+## helpers; they live in the harness, not the package.
+source("utils/calibration.R")
 
 ## Backwards-compatible names used by find.gammaT (which calls
 ## MylinkFun and MyCopIndex internally). These are exported by
